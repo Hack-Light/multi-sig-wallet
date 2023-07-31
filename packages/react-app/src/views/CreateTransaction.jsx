@@ -62,12 +62,13 @@ export default function CreateTransaction({
         // decodedDataObject = readContracts ? await readContracts[contractName].interface.parseTransaction({ data }) : "";
         // console.log("decodedDataObject", decodedDataObject);
         // setCreateTxnEnabled(true);
-        if(decodedDataObject.signature === "addSigner(address,uint256)"){
-          setMethodName("addSigner")
-          setSelectDisabled(true)
-        } else if (decodedDataObject.signature === "removeSigner(address,uint256)"){
-          setMethodName("removeSigner")
-          setSelectDisabled(true)
+        console.log("Custom Test (decodedDataObject): ", decodedDataObject, decodedDataObject.signature);
+        if (decodedDataObject.signature === "addSigner(address,uint256)") {
+          setMethodName("addSigner");
+          setSelectDisabled(true);
+        } else if (decodedDataObject.signature === "removeSigner(address,uint256)") {
+          setMethodName("removeSigner");
+          setSelectDisabled(true);
         }
         decodedData = (
           <div>
@@ -99,7 +100,17 @@ export default function CreateTransaction({
                 if (element.type === "uint256") {
                   return (
                     <p style={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "left" }}>
-                  {element.name === "value" ? <><b>{element.name} : </b> <Balance fontSize={16} balance={decodedDataObject.args[index]} dollarMultiplier={price} /> </> : <><b>{element.name} : </b> {decodedDataObject.args[index] && decodedDataObject.args[index].toNumber()}</>}
+                      {element.name === "value" ? (
+                        <>
+                          <b>{element.name} : </b>{" "}
+                          <Balance fontSize={16} balance={decodedDataObject.args[index]} dollarMultiplier={price} />{" "}
+                        </>
+                      ) : (
+                        <>
+                          <b>{element.name} : </b>{" "}
+                          {decodedDataObject.args[index] && decodedDataObject.args[index].toNumber()}
+                        </>
+                      )}
                     </p>
                   );
                 }
@@ -109,11 +120,9 @@ export default function CreateTransaction({
         setDecodedData(decodedData);
         setCreateTxnEnabled(true);
         setResult();
-
       } catch (error) {
-
-        console.log("mistake: ",error);
-        if(data!== "0x") setResult("ERROR: Invalid calldata");
+        console.log("mistake: ", error);
+        if (data !== "0x") setResult("ERROR: Invalid calldata");
         setCreateTxnEnabled(false);
       }
     }, 500);
@@ -154,13 +163,17 @@ export default function CreateTransaction({
               onChange={setCustomNonce}
             />
           </div>
-                  <div style={{margin:8,padding:8}}>
-          <Select value={methodName} disabled={selectDisabled} style={{ width: "100%" }} onChange={ setMethodName }>
-            //<Option key="transferFunds">transferFunds()</Option>
-            <Option disabled={true} key="addSigner">addSigner()</Option>
-            <Option disabled={true} key="removeSigner">removeSigner()</Option>
-          </Select>
-        </div>
+          <div style={{ margin: 8, padding: 8 }}>
+            <Select value={methodName} disabled={selectDisabled} style={{ width: "100%" }} onChange={setMethodName}>
+              //<Option key="transferFunds">transferFunds()</Option>
+              <Option disabled={true} key="addSigner">
+                addSigner()
+              </Option>
+              <Option disabled={true} key="removeSigner">
+                removeSigner()
+              </Option>
+            </Select>
+          </div>
           <div style={inputStyle}>
             <AddressInput
               autoFocus
@@ -171,9 +184,11 @@ export default function CreateTransaction({
             />
           </div>
 
-          {!selectDisabled && <div style={inputStyle}>
-            <EtherInput price={price} mode="USD" value={amount} onChange={setAmount} />
-          </div>}
+          {!selectDisabled && (
+            <div style={inputStyle}>
+              <EtherInput price={price} mode="USD" value={amount} onChange={setAmount} />
+            </div>
+          )}
           <div style={inputStyle}>
             <Input
               placeholder="calldata"

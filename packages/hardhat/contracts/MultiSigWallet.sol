@@ -9,17 +9,9 @@ contract MultiSigWallet {
     uint public signaturesRequired = 2;
 
     enum Role {
-        PROPOSER,
+        EXECUTOR,
         SIGNER,
         NULL
-    }
-
-    struct Params {
-        bytes callData;
-        address to;
-        uint256 amount;
-        uint8 signRequired;
-        uint256 txId;
     }
 
     address[] owners;
@@ -27,73 +19,136 @@ contract MultiSigWallet {
     mapping(address => Role) public role;
     mapping(uint256 => bool) public txSent;
 
+    uint256 public nonce;
+    uint256 public chainId;
+
+    // events
+    event Owner(address indexed owner, bool isAdded, Role role);
+    event ExecuteTransaction(
+        address indexed from,
+        address payable to,
+        uint256 value,
+        bytes data,
+        uint256 nonce,
+        bytes32 hash,
+        bytes result
+    );
+    event Deposit(address indexed from, uint256 amount, uint256 balance);
+
     modifier onlySelf() {
         require(msg.sender == address(this), "Not self");
+        require(
+            role[msg.sender] == Role.SIGNER ||
+                role[msg.sender] == Role.EXECUTOR,
+            "Unauthorised: You need to be a signer or executor to execute"
+        );
         _;
     }
 
-    constructor() {
-        owners.push(0x97843608a00e2bbc75ab0C1911387E002565DEDE);
-        owners.push(0x97843608a00e2bbc75ab0C1911387E002565DEDE);
-        owners.push(0x97843608a00e2bbc75ab0C1911387E002565DEDE);
-
-        isOwner[0x97843608a00e2bbc75ab0C1911387E002565DEDE] = true;
-        isOwner[0x97843608a00e2bbc75ab0C1911387E002565DEDE] = true;
-        isOwner[0x97843608a00e2bbc75ab0C1911387E002565DEDE] = true;
-
-        role[0x97843608a00e2bbc75ab0C1911387E002565DEDE] = Role.PROPOSER;
-        role[0x97843608a00e2bbc75ab0C1911387E002565DEDE] = Role.PROPOSER;
-        role[0x97843608a00e2bbc75ab0C1911387E002565DEDE] = Role.SIGNER;
+    modifier onlyOwners() {
+        require(isOwner[msg.sender], "Not an executor");
+        _;
     }
 
-    // function getTransactionHash() {}
+    constructor(
+        uint256 _chainId,
+        address[] memory _owners,
+        uint256 _signaturesRequired
+    ) {
+        require(
+            _signaturesRequired > 0,
+            "Number of signature required must be greater than 0"
+        );
+        signaturesRequired = _signaturesRequired;
+        chainId = _chainId;
 
-    function execute(
+        for (uint256 i = 0; i < _owners.length; i++) {
+            require(
+                _owners[i] != address(0),
+                "Address Zero can not be a signer"
+            );
+            require(
+                !isOwner[_owners[i]],
+                "Duplicate signer: signer alrady exists"
+            );
+            isOwner[_owners[i]] = true;
+            owners.push(_owners[i]);
+            role[_owners[i]] = Role.SIGNER;
+            emit Owner(_owners[i], isOwner[_owners[i]], role[_owners[i]]);
+        }
+    }
+
+    function executeTransaction(
         bytes calldata _calldata,
         address _to,
         uint256 _amount,
-        uint256 _txId,
-        uint8 _signRequired,
         bytes[] memory signatures
-    ) external returns (bytes memory) {
+    ) external onlyOwners returns (bytes memory) {
         require(
             isOwner[msg.sender],
             "executeTransaction: only owners can execute"
         );
-        require(!txSent[_txId], "Transaction already sent");
-        Params memory data;
+        // require(!txSent[_txId], "Transaction already sent");
 
-        data.callData = _calldata;
-        data.amount = _amount;
-        data.signRequired = _signRequired;
-        data.txId = _txId;
-        data.to = _to;
+        // bytes32 _hash = keccak256(abi.encode(data));
+        bytes32 _hash = getTransactionHash(nonce, _to, _amount, _calldata);
 
-        bytes32 _hash = keccak256(abi.encode(data));
+        nonce++;
 
         uint8 validSignatures = 0;
 
         for (uint256 i = 0; i < signatures.length; i++) {
             address recovered = recover(_hash, signatures[i]);
-
+            Role n = role[recovered];
             if (isOwner[recovered]) {
-                validSignatures++;
+                if (uint256(n) == 1) {
+                    validSignatures += uint8(owners.length);
+                } else {
+                    validSignatures++;
+                }
             }
         }
 
         require(
-            validSignatures >= _signRequired,
+            validSignatures >= signaturesRequired,
             "executeTransaction: not enough valid signatures"
         );
-
-        txSent[_txId] = true;
 
         (bool success, bytes memory result) = _to.call{value: _amount}(
             _calldata
         );
         require(success, "executeTransaction: tx failed");
 
+        emit ExecuteTransaction(
+            msg.sender,
+            payable(_to),
+            _amount,
+            _calldata,
+            nonce - 1,
+            _hash,
+            result
+        );
+
         return result;
+    }
+
+    function getTransactionHash(
+        uint256 _nonce,
+        address to,
+        uint256 value,
+        bytes memory _calldata
+    ) public view returns (bytes32) {
+        return
+            keccak256(
+                abi.encodePacked(
+                    address(this),
+                    chainId,
+                    _nonce,
+                    to,
+                    value,
+                    _calldata
+                )
+            );
     }
 
     function recover(
@@ -110,6 +165,7 @@ contract MultiSigWallet {
         isOwner[_newSigner] = true;
         owners.push(_newSigner);
         role[_newSigner] = Role.SIGNER;
+        emit Owner(_newSigner, isOwner[_newSigner], role[_newSigner]);
     }
 
     function removeSigner(address _oldSigner) public onlySelf {
@@ -139,6 +195,7 @@ contract MultiSigWallet {
         if (signaturesRequired > owners.length && signaturesRequired > 1) {
             signaturesRequired--;
         }
+        emit Owner(_oldSigner, isOwner[_oldSigner], role[_oldSigner]);
     }
 
     function setSignersRequired(uint8 newSignaturesRequired) public onlySelf {
@@ -154,11 +211,34 @@ contract MultiSigWallet {
         signaturesRequired = newSignaturesRequired;
     }
 
+    // Function to set the role for an owner
+    function setOwnerRole(address _owner, uint256 _role) public onlySelf {
+        require(isOwner[_owner], "Cannot set role for a non-owner");
+
+        if (_role == 1) {
+            role[_owner] = Role.EXECUTOR;
+        } else if (_role == 2) {
+            role[_owner] = Role.SIGNER;
+        } else {
+            revert("Invalid role specified");
+        }
+
+        emit Owner(_owner, isOwner[_owner], role[_owner]);
+    }
+
     function getSigners() public view returns (address[] memory) {
         return owners;
     }
 
-    receive() external payable {}
+    function getOwnerRole(address _owner) public view returns (Role) {
+        return role[_owner];
+    }
 
-    fallback() external payable {}
+    receive() external payable {
+        emit Deposit(msg.sender, msg.value, address(this).balance);
+    }
+
+    fallback() external payable {
+        emit Deposit(msg.sender, msg.value, address(this).balance);
+    }
 }

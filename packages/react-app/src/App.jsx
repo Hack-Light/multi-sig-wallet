@@ -1,13 +1,19 @@
+/* eslint-disable no-unused-expressions */
+/* eslint-disable no-use-before-define */
+/* eslint-disable eqeqeq */
+/* eslint-disable no-unused-vars */
+/* eslint-disable no-underscore-dangle */
 import React, { useCallback, useEffect, useState } from "react";
 import { Switch, Route, Link, useLocation } from "react-router-dom";
 import "antd/dist/antd.css";
-import { StaticJsonRpcProvider, JsonRpcProvider, Web3Provider, InfuraProvider } from "@ethersproject/providers";
+import { StaticJsonRpcProvider, JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
 import "./App.css";
 import { Row, Col, Button, Menu, Alert, Switch as SwitchD } from "antd";
 import Web3Modal from "web3modal";
 import WalletConnectProvider from "@walletconnect/web3-provider";
 import { useUserAddress } from "eth-hooks";
-import { Balance, Header, Account, Faucet, Ramp, Contract, GasGauge, Address, ThemeSwitch } from "./components";
+import { formatEther, parseEther } from "@ethersproject/units";
+import { Header, Account, Faucet, Ramp, Contract, GasGauge, Address, ThemeSwitch } from "./components";
 import {
   useExchangePrice,
   useGasPrice,
@@ -20,14 +26,11 @@ import {
   useOnBlock,
 } from "./hooks";
 import { Transactor } from "./helpers";
-import { formatEther, parseEther } from "@ethersproject/units";
-//import Hints from "./Hints";
-import { Hints, ExampleUI, Subgraph } from "./views";
-import { useThemeSwitcher } from "react-css-theme-switcher";
-import { INFURA_ID, DAI_ADDRESS, DAI_ABI, NETWORK, NETWORKS } from "./constants";
+// import Hints from "./Hints";
 import { CreateTransaction, Transactions, Owners, FrontPage } from "./views";
+import { INFURA_ID, DAI_ADDRESS, DAI_ABI, NETWORK, NETWORKS } from "./constants";
 
-/*
+/* s
     Welcome to 🏗 scaffold-eth !
 
     Code:
@@ -47,13 +50,14 @@ import { CreateTransaction, Transactions, Owners, FrontPage } from "./views";
 */
 
 /// 📡 What chain are your contracts deployed to?
-const targetNetwork = NETWORKS["localhost"]; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
+const targetNetwork = NETWORKS.sepolia; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
 
 // const poolServerUrl = "https://backend.multisig.holdings:49832/";
-const poolServerUrl = "http://localhost:49832/";
+const poolServerUrl = "https://multisig-wallet.onrender.com/";
+// const poolServerUrl = "http://localhost:49832/";
 
 // 😬 Sorry for all the console logging
-const DEBUG = true;
+const DEBUG = false;
 
 // 🛰 providers
 if (DEBUG) console.log("📡 Connecting to Mainnet Ethereum");
@@ -90,8 +94,8 @@ function App(props) {
   const address = useUserAddress(userProvider);
 
   // You can warn the user if you would like them to be on a specific network
-  let localChainId = localProvider && localProvider._network && localProvider._network.chainId;
-  let selectedChainId = userProvider && userProvider._network && userProvider._network.chainId;
+  const localChainId = localProvider && localProvider._network && localProvider._network.chainId;
+  const selectedChainId = userProvider && userProvider._network && userProvider._network.chainId;
 
   // For more hooks, check out 🔗eth-hooks at: https://www.npmjs.com/package/eth-hooks
 
@@ -113,9 +117,9 @@ function App(props) {
   // If you want to make 🔐 write transactions to your contracts, use the userProvider:
   const writeContracts = useContractLoader(userProvider);
 
-  const contractName = "MetaMultiSigWallet";
+  const contractName = "MultiSigWallet";
 
-  //📟 Listen for broadcast events
+  // 📟 Listen for broadcast events
   const executeTransactionEvents = useEventListener(
     readContracts,
     contractName,
@@ -133,7 +137,7 @@ function App(props) {
   const nonce = useContractReader(readContracts, contractName, "nonce");
   if (DEBUG) console.log("# nonce:", nonce);
 
-  //📟 Listen for broadcast events
+  // 📟 Listen for broadcast events
   const ownerEvents = useEventListener(readContracts, contractName, "Owner", localProvider, 1);
   if (DEBUG) console.log("📟 ownerEvents:", ownerEvents);
 
@@ -151,10 +155,10 @@ function App(props) {
   ]);
 
   // keep track of a variable from the contract in the local React state:
-  const purpose = useContractReader(readContracts, "YourContract", "purpose");
+  // const purpose = useContractReader(readContracts, "YourContract", "purpose");
 
-  //📟 Listen for broadcast events
-  const setPurposeEvents = useEventListener(readContracts, "YourContract", "SetPurpose", localProvider, 1);
+  // 📟 Listen for broadcast events
+  // const setPurposeEvents = useEventListener(readContracts, "YourContract", "SetPurpose", localProvider, 1);
 
   /*
   const addressFromENS = useResolveName(mainnetProvider, "austingriffith.eth");
@@ -203,7 +207,7 @@ function App(props) {
     networkDisplay = (
       <div style={{ zIndex: 2, position: "absolute", right: 0, top: 60, padding: 16 }}>
         <Alert
-          message={"⚠️ Wrong Network"}
+          message="⚠️ Wrong Network"
           description={
             <div>
               You have <b>{NETWORK(selectedChainId).name}</b> selected and you need to be on{" "}
@@ -226,7 +230,10 @@ function App(props) {
   const signaturesRequired = useContractReader(readContracts, contractName, "signaturesRequired");
   if (DEBUG) console.log("✳️ signaturesRequired:", signaturesRequired);
 
-  //event OpenStream( address indexed to, uint256 amount, uint256 frequency );
+  // const ownerRoles = useEventListener(readContracts, contractName, "Role", localProvider, 1);
+  // if (DEBUG) console.log("📟 ownerRoles:", ownerRoles);
+
+  // event OpenStream( address indexed to, uint256 amount, uint256 frequency );
   const openStreamEvents = useEventListener(readContracts, contractName, "OpenStream", localProvider, 1);
   if (DEBUG) console.log("📟 openStreamEvents:", openStreamEvents);
 
@@ -259,7 +266,7 @@ function App(props) {
     faucetHint = (
       <div style={{ padding: 16 }}>
         <Button
-          type={"primary"}
+          type="primary"
           onClick={() => {
             faucetTx({
               to: address,
@@ -292,9 +299,6 @@ function App(props) {
         <Menu.Item key="/pool">
           <Link to="/pool">Pool</Link>
         </Menu.Item>
-        <Menu.Item key="/debug">
-          <Link to="/debug">Debug</Link>
-        </Menu.Item>
       </Menu>
 
       <Switch>
@@ -309,26 +313,7 @@ function App(props) {
             blockExplorer={blockExplorer}
           />
         </Route>
-        {/* uncomment for a second contract:
-            <Contract
-              name="SecondContract"
-              signer={userProvider.getSigner()}
-              provider={localProvider}
-              address={address}
-              blockExplorer={blockExplorer}
-            />
-            */}
 
-        {/* Uncomment to display and interact with an external contract (DAI on mainnet):
-            <Contract
-              name="DAI"
-              customContract={mainnetDAIContract}
-              signer={userProvider.getSigner()}
-              provider={mainnetProvider}
-              address={address}
-              blockExplorer={blockExplorer}
-            />
-            */}
         <Route exact path="/owners">
           <Owners
             contractName={contractName}
@@ -380,35 +365,6 @@ function App(props) {
             signaturesRequired={signaturesRequired}
           />
         </Route>
-        <Route path="/debug">
-          <Contract
-            name="MetaMultiSigWallet"
-            signer={userProvider.getSigner()}
-            provider={localProvider}
-            address={address}
-            blockExplorer={blockExplorer}
-            purpose={purpose}
-            setPurposeEvents={setPurposeEvents}
-          />
-        </Route>
-        <Route path="/mainnetdai">
-          <Contract
-            name="DAI"
-            customContract={mainnetDAIContract}
-            signer={userProvider.getSigner()}
-            provider={mainnetProvider}
-            address={address}
-            blockExplorer={"https://etherscan.io/"}
-          />
-        </Route>
-        <Route path="/subgraph">
-          <Subgraph
-            subgraphUri={props.subgraphUri}
-            tx={tx}
-            writeContracts={writeContracts}
-            mainnetProvider={mainnetProvider}
-          />
-        </Route>
       </Switch>
 
       <ThemeSwitch />
@@ -457,14 +413,11 @@ function App(props) {
 
         <Row align="middle" gutter={[4, 4]}>
           <Col span={24}>
-            {
-              /*  if the local provider has a signer, let's show the faucet:  */
-              faucetAvailable ? (
-                <Faucet localProvider={localProvider} price={price} ensProvider={mainnetProvider} />
-              ) : (
-                ""
-              )
-            }
+            {faucetAvailable ? (
+              <Faucet localProvider={localProvider} price={price} ensProvider={mainnetProvider} />
+            ) : (
+              ""
+            )}
           </Col>
         </Row>
       </div>

@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 /* eslint no-use-before-define: "warn" */
 const fs = require("fs");
 const chalk = require("chalk");
@@ -6,24 +7,29 @@ const { utils } = require("ethers");
 const R = require("ramda");
 
 const main = async () => {
-
   console.log("\n\n 📡 Deploying...\n");
+  const targetNetwork = process.env.HARDHAT_NETWORK || config.defaultNetwork;
+  const CHAIN_ID = targetNetwork === "localhost" ? 31337 : 11155111;
 
-// frontend address = 0xc229416BE6a1c18D30fafB28Cf33e472D47B0fc3 (localhost)
-                    // 0xbB69eAb3c34A368151277823e36921Fb366EaE1e (ropsten/rinkeby)
-                    // 0x22d63804D00b4B2BF3dE7Dd21c22aD839E62f920 (meta-wallet)
+  console.log(CHAIN_ID);
 
-  const MetaMultiSigWallet = await deploy("MetaMultiSigWallet",[
-    31337,
-    [ "0x834a9cc3D84941d9A9C80E334E0864A50C823E0C" ],
-    1
-  ])
+  // frontend address = 0xc229416BE6a1c18D30fafB28Cf33e472D47B0fc3 (localhost)
+  // 0xbB69eAb3c34A368151277823e36921Fb366EaE1e (ropsten/rinkeby)
+  // 0x22d63804D00b4B2BF3dE7Dd21c22aD839E62f920 (meta-wallet)
 
+  const MultiSigWallet = await deploy("MultiSigWallet", [
+    CHAIN_ID,
+    [
+      "0x33C17B73D8F961Fd98a7f180a8d7a9B32aCB4ECE",
+      "0x0Ba16126023A1BB89f3b2EfcFae6b0326480e174",
+      "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
+    ],
+    2,
+  ]);
 
+  // const yourContract = await deploy("YourContract") // <-- add in constructor args like line 19 vvvv
 
-  //const yourContract = await deploy("YourContract") // <-- add in constructor args like line 19 vvvv
-
-  //const secondContract = await deploy("SecondContract")
+  // const secondContract = await deploy("SecondContract")
 
   // const exampleToken = await deploy("ExampleToken")
   // const examplePriceOracle = await deploy("ExamplePriceOracle")
@@ -38,14 +44,12 @@ const main = async () => {
   })
   */
 
-
   /*
   //If you want to send some ETH to a contract on deploy (make your constructor payable!)
   const yourContract = await deploy("YourContract", [], {
   value: ethers.utils.parseEther("0.05")
   });
   */
-
 
   /*
   //If you want to link a library into your contract:
@@ -55,8 +59,7 @@ const main = async () => {
   });
   */
 
-
-  //If you want to verify your contract on tenderly.co (see setup details in the scaffold-eth README!)
+  // If you want to verify your contract on tenderly.co (see setup details in the scaffold-eth README!)
   /*
   await tenderlyVerify(
     {contractName: "YourContract",
@@ -65,13 +68,27 @@ const main = async () => {
   */
 
   // If you want to verify your contract on etherscan
-  /*
-  console.log(chalk.blue('verifying on etherscan'))
-  await run("verify:verify", {
-    address: yourContract.address,
-    // constructorArguments: args // If your contract has constructor arguments, you can pass them as an array
-  })
-  */
+
+  console.log(chalk.blue("verifying on etherscan"));
+  console.log(`\n\n 📡 Verifying contract...\n`, MultiSigWallet.address);
+
+  if (targetNetwork !== "localhost") {
+    await sleep(10000); // wait 3 seconds for deployment to propagate bytecode
+    await run("verify:verify", {
+      address: MultiSigWallet.address,
+      // contract: "contracts/MultiSigWallet.sol:MultiSigWallet",
+      constructorArguments: [
+        CHAIN_ID,
+        [
+          "0x33C17B73D8F961Fd98a7f180a8d7a9B32aCB4ECE",
+          "0x0Ba16126023A1BB89f3b2EfcFae6b0326480e174",
+          "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
+        ],
+        2,
+      ],
+    });
+    console.log(`\n\n 📄 Contract verified.\n`);
+  }
 
   console.log(
     " 💾  Artifacts (address, abi, and args) saved to: ",
@@ -80,19 +97,30 @@ const main = async () => {
   );
 };
 
-const deploy = async (contractName, _args = [], overrides = {}, libraries = {}) => {
+const deploy = async (
+  contractName,
+  _args = [],
+  overrides = {},
+  libraries = {}
+) => {
   console.log(` 🛰  Deploying: ${contractName}`);
 
   const contractArgs = _args || [];
-  const contractArtifacts = await ethers.getContractFactory(contractName,{libraries: libraries});
+  const contractArtifacts = await ethers.getContractFactory(contractName, {
+    libraries,
+  });
   const deployed = await contractArtifacts.deploy(...contractArgs, overrides);
   const encoded = abiEncodeArgs(deployed, contractArgs);
   fs.writeFileSync(`artifacts/${contractName}.address`, deployed.address);
 
-  let extraGasInfo = ""
-  if(deployed&&deployed.deployTransaction){
-    const gasUsed = deployed.deployTransaction.gasLimit.mul(deployed.deployTransaction.gasPrice)
-    extraGasInfo = `${utils.formatEther(gasUsed)} ETH, tx hash ${deployed.deployTransaction.hash}`
+  let extraGasInfo = "";
+  if (deployed && deployed.deployTransaction) {
+    const gasUsed = deployed.deployTransaction.gasLimit.mul(
+      deployed.deployTransaction.gasPrice
+    );
+    extraGasInfo = `${utils.formatEther(gasUsed)} ETH, tx hash ${
+      deployed.deployTransaction.hash
+    }`;
   }
 
   console.log(
@@ -101,14 +129,11 @@ const deploy = async (contractName, _args = [], overrides = {}, libraries = {}) 
     "deployed to:",
     chalk.magenta(deployed.address)
   );
-  console.log(
-    " ⛽",
-    chalk.grey(extraGasInfo)
-  );
+  console.log(" ⛽", chalk.grey(extraGasInfo));
 
   await tenderly.persistArtifacts({
     name: contractName,
-    address: deployed.address
+    address: deployed.address,
   });
 
   if (!encoded || encoded.length <= 2) return deployed;
@@ -116,7 +141,6 @@ const deploy = async (contractName, _args = [], overrides = {}, libraries = {}) 
 
   return deployed;
 };
-
 
 // ------ utils -------
 
@@ -141,7 +165,9 @@ const abiEncodeArgs = (deployed, contractArgs) => {
 
 // checks if it is a Solidity file
 const isSolidity = (fileName) =>
-  fileName.indexOf(".sol") >= 0 && fileName.indexOf(".swp") < 0 && fileName.indexOf(".swap") < 0;
+  fileName.indexOf(".sol") >= 0 &&
+  fileName.indexOf(".swp") < 0 &&
+  fileName.indexOf(".swap") < 0;
 
 const readArgsFile = (contractName) => {
   let args = [];
@@ -156,34 +182,49 @@ const readArgsFile = (contractName) => {
 };
 
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // If you want to verify on https://tenderly.co/
-const tenderlyVerify = async ({contractName, contractAddress}) => {
+// eslint-disable-next-line consistent-return
+const tenderlyVerify = async ({ contractName, contractAddress }) => {
+  const tenderlyNetworks = [
+    "kovan",
+    "goerli",
+    "mainnet",
+    "rinkeby",
+    "ropsten",
+    "matic",
+    "mumbai",
+    "xDai",
+    "POA",
+  ];
+  const targetNetwork = process.env.HARDHAT_NETWORK || config.defaultNetwork;
 
-  let tenderlyNetworks = ["kovan","goerli","mainnet","rinkeby","ropsten","matic","mumbai","xDai","POA"]
-  let targetNetwork = process.env.HARDHAT_NETWORK || config.defaultNetwork
-
-  if(tenderlyNetworks.includes(targetNetwork)) {
-    console.log(chalk.blue(` 📁 Attempting tenderly verification of ${contractName} on ${targetNetwork}`))
+  if (tenderlyNetworks.includes(targetNetwork)) {
+    console.log(
+      chalk.blue(
+        ` 📁 Attempting tenderly verification of ${contractName} on ${targetNetwork}`
+      )
+    );
 
     await tenderly.persistArtifacts({
       name: contractName,
-      address: contractAddress
+      address: contractAddress,
     });
 
-    let verification = await tenderly.verify({
-        name: contractName,
-        address: contractAddress,
-        network: targetNetwork
-      })
+    const verification = await tenderly.verify({
+      name: contractName,
+      address: contractAddress,
+      network: targetNetwork,
+    });
 
-    return verification
-  } else {
-      console.log(chalk.grey(` 🧐 Contract verification not supported on ${targetNetwork}`))
+    return verification;
   }
-}
+  console.log(
+    chalk.grey(` 🧐 Contract verification not supported on ${targetNetwork}`)
+  );
+};
 
 main()
   .then(() => process.exit(0))

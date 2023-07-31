@@ -1,8 +1,7 @@
+/* eslint-disable no-param-reassign */
 import { hexlify } from "@ethersproject/bytes";
 import { parseUnits } from "@ethersproject/units";
 import { notification } from "antd";
-import { BLOCKNATIVE_DAPPID, } from "../constants";
-
 import Notify from "bnc-notify";
 
 // this should probably just be renamed to "notifier"

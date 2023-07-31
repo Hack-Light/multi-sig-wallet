@@ -53,10 +53,16 @@ export default function FrontPage({
         bordered
         dataSource={executeTransactionEvents}
         renderItem={item => {
-
           return (
             <>
-                <TransactionListItem item={item} mainnetProvider={mainnetProvider} blockExplorer={blockExplorer} price={price} readContracts={readContracts} contractName={contractName}/>
+              <TransactionListItem
+                item={item}
+                mainnetProvider={mainnetProvider}
+                blockExplorer={blockExplorer}
+                price={price}
+                readContracts={readContracts}
+                contractName={contractName}
+              />
             </>
           );
         }}
